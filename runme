@@ -221,13 +221,26 @@ fi
 
 chmod aog+x "$INSTALLER_FILE"
 
-echo Adding Debian Stretch Backports for Java 11 support
+echo Adding Debian Bookworm Backports for Java 11 support
 echo
 
-sudo wget https://ftp-master.debian.org/keys/archive-key-8.asc -O /tmp/archive-key-8.asc
+sudo wget https://ftp-master.debian.org/keys/archive-key-12.asc -O /tmp/archive-key-8.asc
 sudo apt-key add /tmp/archive-key-8.asc
-echo 'deb http://httpredir.debian.org/debian stretch-backports main contrib non-free' | sudo tee -a /etc/apt/sources.list.d/debian-backports.list
+echo 'deb http://deb.debian.org/debian unstable main non-free contrib' | sudo tee -a /etc/apt/sources.list
 
+# Define the content to be added
+content='Package: *
+Pin: release a=stable
+Pin-Priority: 900
+
+Package: *
+Pin: release a=unstable
+Pin-Priority: 50'
+
+# Append the content to /etc/apt/preferences
+echo "$content" | sudo tee -a /etc/apt/preferences
+
+echo "The content has been added to /etc/apt/preferences."
 echo About to upgrade Raspian to the latest version -- this may take some time
 echo
 
@@ -238,6 +251,8 @@ sudo apt-get install -y xorg xinit openjdk-11-jre pwgen matchbox-keyboard
 sudo apt-get autoremove
 sudo apt-get clean
 echo
+
+sudo update-alternatives --config java
 
 sudo sed -i -e '/\(trap.*2\)\|\(set.*\+m\)/d' /etc/profile
 
