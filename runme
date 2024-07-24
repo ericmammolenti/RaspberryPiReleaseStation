@@ -221,35 +221,13 @@ fi
 
 chmod aog+x "$INSTALLER_FILE"
 
-echo Adding Debian Bookworm Backports for Java 11 support
-echo
-
-# Download and add the Debian GPG key in a secure way
-sudo wget -qO- https://ftp-master.debian.org/keys/archive-key-12.asc | sudo gpg --dearmor -o /usr/share/keyrings/debian-archive-keyring.gpg
-
-# Add the unstable repository with the signed-by option
-echo 'deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] http://deb.debian.org/debian unstable main non-free contrib' | sudo tee -a /etc/apt/sources.list
-
-# Define the content to be added
-content='Package: *
-Pin: release a=stable
-Pin-Priority: 900
-
-Package: *
-Pin: release a=unstable
-Pin-Priority: 50'
-
-# Append the content to /etc/apt/preferences
-echo "$content" | sudo tee -a /etc/apt/preferences
-
-echo "The content has been added to /etc/apt/preferences."
 echo About to upgrade Raspian to the latest version -- this may take some time
 echo
 
 sudo apt-get update && sudo apt-get upgrade -y && sudo apt-get dist-upgrade -y
 
 echo About to install X Windows and the Java runtime if required -- this may take some time
-sudo apt-get install -y xorg xinit openjdk-11-jre pwgen matchbox-keyboard
+sudo apt-get install -y xorg xinit openjdk-17-jre pwgen matchbox-keyboard
 sudo apt-get autoremove
 sudo apt-get clean
 echo
@@ -554,39 +532,37 @@ sudo sed -i -re '/config-(hostname|wifi)/d;/exit 0/i\
 ' /etc/rc.local
 
 # shellcheck disable=2154
-if [[ "pi" -eq "$USER" ]] ; then
+if [[ "pi" == "$USER" ]] ; then
     echo "The default account is still named \"$USER\". This should be changed for security reasons"
     if [[ $(ask "Do you wish to rename the $USER user account?[y/N] ") =~ ^[Yy]$ ]] ; then
 
-        read -rp "Please enter the new user name " < /dev/tty
+        read -rp "Please enter the new user name: " newUserName < /dev/tty
 
         # Make all these changes under a single sudo session -- must be all done at once
-        cat <<'EOF' | sudo bash -s $USER $REPLY $HOME
+        cat <<EOF | sudo bash -s "$USER" "$newUserName" "$HOME"
             for i in /etc/group /etc/passwd /etc/sudoers /etc/shadow ; do
-                sed -ri -e '/\b'$1'\b/s/\b'$1'\b/'$2'/g' $i
+                sed -ri -e 's/\b'$1'\b/'$2'/g' "$i"
             done
 
-          if [[ -f /etc/sudoers.d/010_${1}-nopasswd ]] ; then
-            # Password setting introduced in 20161018+1
-            mv /etc/sudoers.d/010_${1}-nopasswd /etc/sudoers.d/010_${2}-nopasswd
-            sed -ri -e '/\b'$1'\b/s/\b'$1'\b/'$2'/g' /etc/sudoers.d/010_$2-nopasswd
-          fi
+            if [[ -f /etc/sudoers.d/010_${1}-nopasswd ]] ; then
+                mv "/etc/sudoers.d/010_${1}-nopasswd" "/etc/sudoers.d/010_${2}-nopasswd"
+                sed -ri -e 's/\b'$1'\b/'$2'/g' "/etc/sudoers.d/010_${2}-nopasswd"
+            fi
 
-          # Rename home directory
-          mv $3 /home/$2
+            # Rename home directory
+            mv "$3" "/home/$2"
 EOF
 
-        USER=$REPLY
+        USER=$newUserName
+        HOME="/home/$newUserName"
 
         echo "User name changed to $USER"
-
-        echo please change the password as well
+        echo "Please change the password as well"
         sudo passwd "$USER"   # Don't prompt the user for their own password by using sudo
     else
       echo
     fi
 fi
-
 
 # Enable ssh server (Requried for Raspian after November 2016)
 sudo touch /boot/ssh
